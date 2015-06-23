@@ -1,0 +1,317 @@
+---
+title: "Homework 2"
+author: "Brett Burk"
+date: "Saturday, June 16, 2015"
+output: 
+  pdf_document: 
+    fig_height: 3
+---
+```{r, warning = FALSE, message = FALSE}
+library(fma)
+library(ggplot2)
+library(reshape2)
+library(caret)
+library(AppliedPredictiveModeling)
+library(pls)
+library(elasticnet)
+```
+##### Hyndman and Athanasopoulos #####
+
+##### Question 4.1a #####
+
+objective: determine whether there is and why there might be a negative relationship
+```{r}
+plot(Mwh ~ temp, data = econsumption)
+mhwTemp <- lm(Mwh ~ temp, data = econsumption)
+abline(mhwTemp)
+```
+One would assume there's a negative relationship because at colder temperatures people would be more likely to be inside using electricity and/or heating their homes.
+
+##### Question 4.1b #####
+
+objective: determine if there are influential observations/outliers
+```{r}
+plot(residuals(mhwTemp) ~ temp, data = econsumption)
+```
+The model seems relatively fair, although there is one strong outlier--(19.0, 23.4) that affects the model. We can also see that it most correctly predicts middle temperatures. It looks better after the single point is removed:
+
+```{r}
+econsumptionClean <- econsumption[-8,]
+plot(Mwh ~ temp, data = econsumptionClean)
+fitClean <- lm(Mwh ~ temp, data = econsumptionClean)
+plot(Mwh ~ temp, data = econsumption)
+abline(mhwTemp, col = 'Blue')
+abline(fitClean, col = 'Red')
+```
+There is a change, but it's not drastic.
+
+##### Question 4.1c #####
+
+objective: make predictions and check their feasability
+```{r}
+forecast(mhwTemp, 10)$mean
+forecast(mhwTemp, 35)$mean
+c(forecast(mhwTemp, 10)$mean, forecast(mhwTemp, 35)$mean)
+plot(Mwh ~ temp, data = econsumption, xlim = c(5, 40))
+abline(mhwTemp, col = 'Blue')
+points(c(10, 35), c(forecast(mhwTemp, 10)$mean, forecast(mhwTemp, 35)$mean), pch = 19, col = 'Red')
+```
+
+The first prediction (that for 10) seems pretty reasonable, and while the second is not outlandish, the fact that we are no longer making predictions within observed variables is obviously problematic, as we should not extrapolate our prediction to points outside of the observed interval.
+
+##### Question 4.1d #####
+
+objective: Identify the prediction intervals \newline
+95% interval for 10&deg;C
+```{r}
+c(forecast(mhwTemp, 10)$lower[2], forecast(mhwTemp, 10)$upper[2])
+```
+95% interval for 35&deg;C
+```{r}
+c(forecast(mhwTemp, 35)$lower[2], forecast(mhwTemp, 35)$upper[2])
+```
+
+
+##### Question 5.2a #####
+
+objective: Plot the data to get an idea of what it looks like.
+```{r}
+plot(consumption ~ price, data = texasgas)
+```
+
+##### Question 5.2b #####
+
+The line changes with the price because consumption is likely to go down with higher prices, some things require electricity no matter what (and some people may be more expensive to serve, such as farmers, vs. residential consumption). 
+
+##### Question 5.2c #####
+
+objective: Plot the three models, and find the coefficients and residual variance.
+
+Exponential:
+```{r}
+plot(consumption ~ price, data = texasgas)
+expFit <- nls(consumption ~ exp(a + b * price), 
+              data = texasgas, 
+              start = list(a = 0, b = 0))
+lines(texasgas$price, predict(expFit, x = texasgas$price), col = 'red')
+```
+Coefficients followed by the variance of residuals:
+```{r}
+summary(expFit)$coefficients
+var(resid(expFit))
+```
+
+Piecewise:
+```{r}
+pricep <- pmax(texasgas$price - 60, 0)
+pieceFit <- lm(consumption ~ price + pricep, data = texasgas)
+x <- min(texasgas$price):max(texasgas$price)
+z <- pmax(x-60, 0)
+fcast <- forecast(pieceFit, newdata = data.frame(price = x, pricep = z))
+plot(consumption ~ price, data = texasgas)
+lines(x, fcast$mean, col = 'red')
+```
+Coefficients followed by the variance of residuals:
+```{r}
+summary(pieceFit)$coefficients
+var(resid(pieceFit))
+```
+
+Polynomial:
+```{r}
+polyFit <- nls(consumption ~ a + b * price + c * price^2, 
+              data = texasgas, 
+              start = list(a = 0, b = 0, c = 0))
+plot(consumption ~ price, data = texasgas)
+lines(texasgas$price, predict(polyFit, x = texasgas$price), col = 'red')
+```
+Coefficients followed by the variance of residuals:
+```{r}
+summary(polyFit)$coefficients
+var(resid(polyFit))
+```
+
+##### Question 5.2d #####
+
+Exponential: \newline 
+First the $R^2$
+```{r}
+1-sum(residuals(expFit)^2)/(length(texasgas$consumption) * var(texasgas$consumption))
+```
+AIC
+```{r}
+AIC(expFit)
+```
+Residuals plot:
+```{r}
+plot(texasgas$price, resid(expFit))
+```
+
+This model is far from perfect, it fits a lot of the data points pretty well, but there are a few points that it drastically over/underestimates. It works well on the later data, but is not good at the data before 60 degrees.
+
+Piecewise:\newline
+$R^2$
+```{r}
+1-sum(residuals(pieceFit)^2)/(length(texasgas$consumption) * var(texasgas$consumption))
+```
+AIC
+```{r}
+AIC(pieceFit)
+```
+Residuals plot:
+```{r}
+plot(texasgas$price, resid(pieceFit))
+```
+This is the best model of the three, again, it is not perfect, but most of the data points float around it. It doesn't do a great job on the first half of the data, but it doesn't do terribly either.
+
+Polynomial: \newline
+$R^2$
+```{r}
+1-sum(residuals(polyFit)^2)/(length(texasgas$consumption) * var(texasgas$consumption))
+```
+AIC
+```{r}
+AIC(polyFit)
+```
+Residuals plot:
+```{r}
+plot(texasgas$price, resid(polyFit))
+```
+This model is middle of the road, it works, and it does a better job with the first half of the data, although it doesn't do as well of a job estimating the second half.
+
+##### Question 5.2e #####
+
+objective: Use the best model from above to make estimates
+```{r}
+toForecast <-seq(40, 120, 20)
+pricep2 <- pmax(toForecast - 60, 0)
+fcast <- forecast(pieceFit, newdata = data.frame(price = toForecast, pricep = pricep2))
+cbind(toForecast, fcast$mean)
+```
+
+##### Question 5.2f #####
+
+objective: Determine and graph the prediction intervals
+```{r}
+foreMeans <- cbind(toForecast, fcast$mean)
+foreUpper <- cbind(toForecast, fcast$upper[,2])
+foreLower <- cbind(toForecast, fcast$lower[,2])
+foreConf <- rbind(foreMeans, foreUpper, foreLower)
+plot(foreConf, pch = '.')
+lines(foreUpper, col = 'red')
+lines(foreLower, col = 'red')
+```
+We can be 95% confident that our predictions for those values (the extrapolation of using lines rather than points should not be interpreted to relate to lines, but rather to upper and lower limits of the points therein) will lie between the red lines. This means that we would expect about one out of every twenty such obeservations to lie outside of those lines.
+
+##### Question 5.2g #####
+
+objective: Show the relationship between $P^2$ and P. \newline
+$P^2$ is obviously completely dependent on P, which mmay lead it to have the issues that come along with variables that are highly dependent on each other: wide confidence intervals, and large standard errors.
+
+##### Kuhn and Johnson #####
+
+##### Question 6.2a #####
+
+objective: Load in the data.
+```{r}
+data(permeability)
+```
+
+##### Question 6.2b #####
+
+objective: Eliminate unnecessary predictors and give the amount of predictors afterwards.
+```{r}
+fingerZero <- fingerprints[,nearZeroVar(fingerprints)]
+ncol(fingerZero)
+```
+
+##### Question 6.2c #####
+
+objective: Split the data and determine the ideal number of components and the $R^2$
+```{r}
+set.seed(06202015)
+# Sampling
+chosen <- sample(1:nrow(fingerprints))
+
+# Creating the training set
+chosenTrain <- chosen[1:(length(chosen) * 0.8)]
+fingerTrain <- fingerprints[chosenTrain,]
+
+# Preprocessing
+nzv <- nearZeroVar(fingerTrain)
+fingerTrain <- fingerTrain[,nzv]
+fingerTrain <- data.frame(fingerTrain, perm = permeability[chosenTrain])
+
+# Creating the test set
+chosenTest <- chosen[(length(chosen) * 0.8 + 1):length(chosen)]
+fingerTest <- fingerprints[chosenTest,]
+# Using the same colums as the training set
+fingerTest <- fingerTest[,nzv]
+fingerTest <- data.frame(fingerTest, perm = permeability[chosenTest])
+
+# Training the model
+plsFit <- plsr(perm ~ ., data = fingerTrain, validation = 'CV')
+```
+The amount of ideal components:
+```{r}
+preds <- predict(plsFit, fingerTrain)
+mincomp <- which.min(RMSEP(plsFit)$val)
+validationplot(plsFit, val.type = 'RMSEP')
+points(mincomp, RMSEP(plsFit)$val[mincomp], col = 'Blue', pch = 25)
+```
+22 Seems like the correct number.
+```{r}
+finalPred <- predict(plsFit, fingerTrain, ncomp = 22)
+plsEval <- data.frame(obs = fingerTrain$perm, pred = finalPred)
+
+# For some reason this broke, so this is a hacky fix
+names(plsEval)[2] <- 'pred'
+
+defaultSummary(plsEval)
+```
+
+##### Question 6.2d #####
+
+objective: Apply the model to the test data set and evaluate the $R^2$
+```{r}
+testPred <- predict(plsFit, fingerTest, ncomp = 22)
+plsTestEval <- data.frame(obs = fingerTest$perm, pred = testPred)
+names(plsTestEval)[2] <- 'pred'
+defaultSummary(plsTestEval)
+```
+Because of the low $R^2$ here compared to the training set, we may have overfit our model in the first part.
+
+##### Question 6.2e #####
+
+objective: Try other models and test them
+First I tried ordinary least squares regression (still having used PCA)
+```{r}
+olrFit <- lm(perm ~ ., data = fingerTrain)
+summary(olrFit)$r.squared
+defaultSummary(data.frame(obs = fingerTest$perm, pred = predict(olrFit, fingerTest)))['Rsquared']
+```
+
+The predicted performance is much worse for an ordinary least squares than a partial least squares. The error here is also pertinent, as this data set is much wider than it is long.
+
+Next I tried PCR
+```{r}
+pcrTrain <- data.frame(fingerprints[chosenTrain,], perm = permeability[chosenTrain])
+pcrTest <- data.frame(fingerprints[-chosenTrain,], perm = permeability[-chosenTrain])
+pcrModel <- pcr(perm ~ ., data = pcrTrain, validation = 'CV')
+validationplot(pcrModel, val.type = 'RMSEP')
+which.min(RMSEP(pcrModel)$val)
+pcrModel <- pcr(perm ~ ., data = pcrTrain, validation = 'CV', ncomp = 62)
+pcrComparison <- data.frame(obs = pcrTrain$perm, pred = predict(pcrModel, pcrTrain, ncomp = 62))
+names(pcrComparison)[2] <- 'pred'
+defaultSummary(pcrComparison)['Rsquared']
+
+pcrTestComparison <- data.frame(obs = pcrTest$perm, pred = predict(pcrModel, pcrTest, ncomp = 62))
+names(pcrTestComparison)[2] <- 'pred'
+defaultSummary(pcrTestComparison)['Rsquared']
+```
+
+Which definitely had better results.
+
+##### Question 6.2f #####
+
+I would definitely not recommend OLS over PLS, however, PCR definitely seems like a better option than PLS. The $R^2$ is better for this model, although a more complex model is needed in order to achieve better results on the test set.

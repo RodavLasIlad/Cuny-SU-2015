@@ -1,0 +1,280 @@
+---
+title: "Homework 1"
+author: "Brett Burk"
+date: "Saturday, June 13, 2015"
+output: pdf_document
+---
+```{r, warning = FALSE, message = FALSE}
+library(ggplot2)
+library(fma)
+library(zoo)
+library(mlbench)
+library(caret)
+```
+##### Hyndman and Athanasopoulos #####
+
+##### Question 2.1a #####
+
+objective: Analyze the unemployed benefits in Australia, and then apply a transformation if appropriate.
+
+```{r}
+question_2.1a <- function() {
+  plot(dole)
+  doleLambda  <- BoxCox.lambda(dole)
+  plot(BoxCox(dole, doleLambda), xlab = 'Date', 
+       ylab = paste('Unemployment benefits with Lambda =', round(doleLambda, digits = 2)))
+}
+question_2.1a()
+```
+After evaluating the original plot, I calculated the lambda and then plotted a BoxCox transformation of the data--which better displays the patterns.
+
+##### Question 2.1b #####
+
+objective: Analyze the monthly total of accidental deaths in the US, and then apply a transformation if appropriate.
+
+```{r}
+question_2.1b <- function() {
+  plot(usdeaths)
+  seasonplot(usdeaths, ylab = 'Accidental deaths in the US', year.labels = TRUE, 
+             year.labels.left = TRUE, col = 1:6, pch = 19, main= 'Accidental US Deaths')
+}
+question_2.1b()
+```
+From the original plot, one can easily see that this includes seasonal data, and once it is plotted as such, we can see that the summer provides the most fatalities and also that 1973 was a year with significantly more accidental deaths than other years.
+
+##### Question 2.1c #####
+
+objective: Analyse the quarterly total of brick production and then apply a transformation if appropriate.
+```{r}
+question_2.1c <- function() {
+  plot(bricksq)
+  plot(rollmean(bricksq, 4), main = 'Rolling Average for Last 12 Months of Data', 
+       ylab = 'Average brick production in the past year')
+  monthplot(bricksq)
+}
+question_2.1c()
+```
+By plotting a rolling mean of the past four quarters, we can get a better idea of the overall trends (while the rolling mean was not discussed in the reading, it seemed like an appropriate transformation given the data). This also allows us to see how the past year of brick production has been for each quarter.
+
+##### Question 2.3a #####
+
+objective: Plot and analyze the ibm data in order to become familiar with it
+```{r}
+question_2.3a <- function() {
+  plot(ibmclose)
+  plot(rollmean(ibmclose, 10))
+  hist(ibmclose, breaks = seq(min(ibmclose), 
+                              max(ibmclose) + 10, 10))
+}
+question_2.3a()
+```
+
+##### Question 2.3b #####
+
+objective: Splitting the data for the first 300 and then making predictions on the alst 69 units (for training and testing purposes)
+
+```{r} 
+question_2.3b <- function() {
+  trainIbm <- ibmclose[1:300]
+  testIbm <- ibmclose[301:369]
+}
+question_2.3b()
+```
+
+##### Question 2.3c #####
+objective: Trying various benchmark methods (Mean, Drift, and Naive Bayes) and seeing which performs the best
+
+```{r}
+question_2.3c <- function() {
+  trainIbm <- ibmclose[1:300]
+  testIbm <- ibmclose[301:369]
+  ibmMean <- meanf(trainIbm, h = 10)
+  ibmDrift <- rwf(trainIbm, h = 10, drift = TRUE)
+  ibmNaive <- naive(trainIbm, h = 10)
+  print('Mean')
+  print(accuracy(ibmMean, testIbm))
+  print('Drift')
+  print(accuracy(ibmDrift, testIbm))
+  print('Naive')
+  print(accuracy(ibmNaive, testIbm))
+}
+question_2.3c()
+```
+
+As it had the lowest RMSE, MAE, MPE, and MAPE for the test set, the Naive Bayes method worked the best
+
+##### Question 2.4a #####
+
+objective: Plotting the one family houses by first a time series, then a season plot, and then a month plot in order to interpret the results
+
+```{r}
+question_2.4a <- function() {
+  plot(hsales2)
+  seasonplot(hsales2)
+  monthplot(hsales2)
+}
+question_2.4a()
+```
+
+We can see that purchases are typically at the ends of the month, and also that March and April typically see more purchases.
+
+##### Question 2.4b #####
+
+objective: Seperating the last two years worth of data in order to test predictions on it
+
+```{r}
+question_2.4b <- function() {
+  salesTrain <- window(hsales2, end = 1994 - 0.1)
+  salesTest <- window(hsales2, start = 1994 - 0.1)
+}
+question_2.4b()
+```
+
+##### Question 2.4c #####
+
+objective: Testing the accuracy of various predictive models
+
+```{r}
+question_2.4c <- function() {
+  salesTrain <- window(hsales2, end = 1994 - 0.1)
+  salesTest <- window(hsales2, start = 1994 - 0.1)
+  salesMean <- meanf(salesTrain, h = 10)
+  salesDrift <- rwf(salesTrain, h = 10, drift = TRUE)
+  salesNaive <- naive(salesTrain, h = 10)
+  salesSNaive <- snaive(salesTrain, h = 10)
+  print('Mean')
+  print(accuracy(salesMean, salesTest))
+  print('Drift')
+  print(accuracy(salesDrift, salesTest))
+  print('Naive')
+  print(accuracy(salesNaive, salesTest))
+  print('Seasonal Naive')
+  print(accuracy(salesSNaive, salesTest))
+}
+question_2.4c()
+```
+
+Seasonal Naive Bayes performs the best.
+
+##### Kuhn and Johnson #####
+
+##### Question 3.2a #####
+
+objective: Examine the data and identify degenerate cases
+
+```{r}
+question_3.2a <- function() {
+  data(Soybean)
+  for(name in names(Soybean)){
+    print(name)
+    print(table(Soybean[name]))
+    print('------------------------------')
+  }
+}
+question_3.2a()
+```
+
+There are quite a few degenerate cases:
+
+ * leaf.malf--1
+ * roots--2
+ * fruit.pods--2
+ * sclerotia--1
+ * mycelium--1
+ * Various classes, especially 'herbicide injury' and '2-4-d-injury'
+
+##### Question 3.2b #####
+
+objective: identify patterns in missing data
+
+```{r}
+question_3.2b <- function() {
+  missingData <- Soybean[!(complete.cases(Soybean)),]
+  table(missingData$Class)[table(missingData$Class) >= 1]
+}
+question_3.2b()
+```
+
+Almost all of the missing data comes from a small collection of classes. Almost all of those classes contain only rows with missing data (phytophthora-rot is the only one that contains missing information for some but not all of its entries). Almost all of the data with missing entries have a seed size of 1.
+The classes with missing data:
+2-4-d-injury
+* cyst-nematode
+* diaporthe-pod-&-stem-blight
+* herbicide-injury
+* phytophthora-rot
+
+##### Question 3.2c #####
+
+objective: Strategy for handling missing data
+
+A simple way to handle this missing data, would be to train an algorithm to make an initial fork--as the fact that information has missing values is clearly predictive in this case--if it includes missing data, than it is far more likely to be one of the initial groups. In order to enhance the predictive power, it may be easier (depending on how important it is to predict thsoe specific diseases) to simply clean the dataset by removing all non-complete cases.
+
+```{r}
+question_3.2c <- function() {
+  mungedData <- Soybean[complete.cases(Soybean),]
+}
+question_3.2c()
+```
+
+##### Question 4.4a #####
+
+objective: Compare the normal probabilities to those of a random sample
+
+```{r}
+question_4.4a <- function() {
+  data(oil)
+  propTable <- table(oilType)/length(oilType)
+  simData <- propTable
+  for(i in 1:100){
+    sampleItems <- sample(1:length(oilType), 60)
+    sampledOil <- oilType[sampleItems]
+    sampTable <- table(sampledOil)/length(sampledOil)
+    simData <- rbind(simData, propTable - sampTable)
+  }
+  print(colMeans(simData))
+}
+question_4.4a()
+```
+
+##### Question 4.4b #####
+
+objective: Compare random samples with those produced by create data partition
+
+```{r}
+question_4.4b <- function() {
+  propTable <- table(oilType)/length(oilType)
+  dp <- createDataPartition(oilType, p = 0.59)
+  dpOil <- oilType[dp[[1]]]
+  dpTable <- table(dpOil)/length(dpOil)
+  print(propTable - dpTable)
+}
+question_4.4b()
+```
+
+The main difference for this is that the results are uniform (it produces exactly the same result, whereas the sample is random). It attempts to build a diversified sample, which using sample() does not always produce.
+
+##### Question 4.4c #####
+
+objective: evaluate whether creating a test/train group is efficient given the data size
+
+Using a test model would be very inefficient, as it would require excluding too much of the data. Using an analysis that requires 'folds' or iterates through several times while leaving out portions of the data each time would be much more efficient for such a small dataset.
+
+##### Question 4.4d #####
+
+objective: find different sizes for confidence intervals
+
+```{r}
+question_4.4d <- function() {
+  toPlot <- c(0)
+  for(i in 1:length(oilType)){
+    for(j in 1:i){
+      currTest <- binom.test(j, i)$conf.int
+      toPlot[length(toPlot)+1] <- currTest[2] - currTest[1]
+    }
+  }
+  plot(toPlot)
+}
+question_4.4d()
+```
+
+This plot is far from perfect, but it does allow us to see the important information--i.e. as the size of the sample gets closer to the size of the data set, and the amount of correct answers gets larger, our confidence interval gets progressively smaller. This makes intuitive sense, and the plot, while simple, confirms this.

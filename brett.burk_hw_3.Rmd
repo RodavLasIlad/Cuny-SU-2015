@@ -1,0 +1,10 @@
+---
+title: "Homework 3"
+author: "Brett Burk"
+date: "June 22, 2015"
+output: pdf_document
+---
+
+##### 7.2 #####
+
+##### 7.4 #####
